@@ -336,7 +336,9 @@ def load_comparison():
     with open(COMPARE_PATH) as f: return json.load(f)
 
 @st.cache_data
-def load_dataset():
+def load_dataset(uploaded_file=None):
+    if uploaded_file is not None:
+        return pd.read_csv(uploaded_file)
     if not os.path.exists(DATA_PATH): return None
     return pd.read_csv(DATA_PATH)
 
@@ -374,7 +376,9 @@ with st.sidebar:
         st.caption("Run `python src/train_model.py` first")
 
     if os.path.exists(DATA_PATH):
-        st.markdown("<br><span class='sev-ok'>● DATASET LOADED</span>", unsafe_allow_html=True)
+        st.markdown("<br><span class='sev-ok'>● DATASET LOADED (LOCAL)</span>", unsafe_allow_html=True)
+    elif "uploaded_dataset" in st.session_state:
+        st.markdown("<br><span class='sev-ok'>● DATASET LOADED (UPLOADED)</span>", unsafe_allow_html=True)
     else:
         st.markdown("<br><span class='sev-critical'>● DATASET MISSING</span>", unsafe_allow_html=True)
 
@@ -406,9 +410,18 @@ if page == "🏠  Overview":
     </div>
     """, unsafe_allow_html=True)
 
-    df = load_dataset()
+    # Check for uploaded dataset in session state
+    if "uploaded_dataset" in st.session_state:
+        df = load_dataset(st.session_state["uploaded_dataset"])
+    else:
+        df = load_dataset()
+
     if df is None:
-        st.error("❌ Dataset not found. Place `creditcard.csv` in the `Data/` folder.")
+        st.warning("⚠️ Dataset not found on server. Please upload the `creditcard.csv` dataset to view the Overview and Model Performance dashboards.")
+        uploaded_file = st.file_uploader("Upload creditcard.csv Dataset", type=["csv"], key="main_dataset_upload")
+        if uploaded_file:
+            st.session_state["uploaded_dataset"] = uploaded_file
+            st.rerun()
         st.stop()
 
     total  = len(df)
