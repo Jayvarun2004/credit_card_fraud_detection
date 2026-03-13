@@ -363,7 +363,7 @@ with st.sidebar:
 
     page = st.radio(
         "Navigation",
-        ["🏠  Overview", "📊  Model Performance", "🔍  Manual Predict", "📁  Batch Predict"],
+        ["🏠  Overview", "📈  Data Upload", "📊  Model Performance", "🔍  Manual Predict", "📁  Batch Predict"],
         label_visibility="collapsed"
     )
 
@@ -410,18 +410,13 @@ if page == "🏠  Overview":
     </div>
     """, unsafe_allow_html=True)
 
-    # Check for uploaded dataset in session state
     if "uploaded_dataset" in st.session_state:
         df = load_dataset(st.session_state["uploaded_dataset"])
     else:
         df = load_dataset()
 
     if df is None:
-        st.warning("⚠️ Dataset not found on server. Please upload the `creditcard.csv` dataset to view the Overview and Model Performance dashboards.")
-        uploaded_file = st.file_uploader("Upload creditcard.csv Dataset", type=["csv"], key="main_dataset_upload")
-        if uploaded_file:
-            st.session_state["uploaded_dataset"] = uploaded_file
-            st.rerun()
+        st.warning("⚠️ Dataset not found on server. Please go to the **Data Upload** page to upload the `creditcard.csv` dataset.")
         st.stop()
 
     total  = len(df)
@@ -526,6 +521,42 @@ if page == "🏠  Overview":
         fig_corr.update_layout(height=280, yaxis=dict(autorange="reversed"), xaxis_title="Abs. Correlation")
         st.plotly_chart(fig_corr, width='stretch')
         st.markdown("</div></div>", unsafe_allow_html=True)
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+#  PAGE 1.5 — DATA UPLOAD
+# ═══════════════════════════════════════════════════════════════════════════════
+elif page == "📈  Data Upload":
+    from datetime import datetime
+    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    st.markdown(f"""
+    <div class="splunk-topbar">
+        <div class="splunk-topbar-title">📈 Data Upload Center</div>
+        <div class="splunk-topbar-meta">{now}</div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    st.markdown("""
+    <div style='background:#1e2029;border:1px solid #2d3040;border-left:3px solid #0877a6;
+         border-radius:3px;padding:14px 18px;font-size:0.85rem;color:#c3cbd4;margin-bottom:20px;'>
+        <h3 style='margin-top:0;color:#e8eaf0;font-size:1.1rem;'>Upload Training Dataset</h3>
+        <p style='color:#7a8190;margin-bottom:0;'>If the application is deployed on a cloud server where the <code>creditcard.csv</code> dataset is not available locally, you can upload it here. 
+        Once uploaded, the dataset will be stored in your session, enabling the <b>Overview</b> and <b>Model Performance</b> pages to function correctly.</p>
+    </div>
+    """, unsafe_allow_html=True)
+
+    st.markdown("<div class='splunk-panel'><div class='splunk-panel-header'>📁 UPLOAD CREDITCARD.CSV</div><div class='splunk-panel-body'>", unsafe_allow_html=True)
+    
+    uploaded_file = st.file_uploader("Select the dataset file (CSV format)", type=["csv"], key="dedicated_dataset_upload")
+    
+    if uploaded_file:
+        st.session_state["uploaded_dataset"] = uploaded_file
+        st.success("✅ Dataset successfully uploaded and stored in session memory!")
+        st.markdown("<br><p style='color:#53a051;font-weight:bold;'>You can now navigate to the Overview or Model Performance pages.</p>", unsafe_allow_html=True)
+    elif "uploaded_dataset" in st.session_state:
+        st.info("ℹ️ A dataset is currently loaded in your session. Uploading a new file will replace it.")
+    
+    st.markdown("</div></div>", unsafe_allow_html=True)
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
