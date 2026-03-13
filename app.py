@@ -26,9 +26,8 @@ DATA_PATH       = os.path.join(os.path.dirname(__file__), 'Data', 'creditcard.cs
 # ── Page config ────────────────────────────────────────────────────────────────
 st.set_page_config(
     page_title="FraudGuard | Transaction Intelligence",
-    page_icon="🛡️",
-    layout="wide",
-    initial_sidebar_state="expanded"
+    page_icon="💠",
+    layout="wide",    initial_sidebar_state="expanded"
 )
 
 # ── Splunk-style Global CSS ────────────────────────────────────────────────────
@@ -351,7 +350,7 @@ with st.sidebar:
     st.markdown("""
     <div style='padding:18px 10px 12px;'>
         <div style='display:flex;align-items:center;gap:10px;margin-bottom:4px;'>
-            <span style='font-size:1.5rem;'>🛡️</span>
+            <span style='font-size:1.5rem;'>💠</span>
             <div>
                 <div style='font-size:0.95rem;font-weight:700;color:#e8eaf0;'>FraudGuard</div>
                 <div style='font-size:0.65rem;color:#4b5260;text-transform:uppercase;letter-spacing:0.06em;'>Transaction Intelligence</div>
