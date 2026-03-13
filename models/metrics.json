@@ -1,0 +1,20 @@
+{
+  "model": "Random Forest",
+  "accuracy": 0.9994,
+  "precision": 0.8081,
+  "recall": 0.8163,
+  "f1_score": 0.8122,
+  "roc_auc": 0.9831,
+  "confusion_matrix": [
+    [
+      56845,
+      19
+    ],
+    [
+      18,
+      80
+    ]
+  ],
+  "test_size": 56962,
+  "fraud_in_test": 98
+}

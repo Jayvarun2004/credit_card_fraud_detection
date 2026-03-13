@@ -1,0 +1,28 @@
+# Environments
+venv/
+env/
+.env
+
+# Cache
+__pycache__/
+*.pyc
+*.pyo
+
+# Data (Ignore large CSV dataset)
+Data/
+data/
+*.csv
+
+# Models
+models/*.pkl
+
+# OS / IDE
+.DS_Store
+.vscode/
+.idea/
+
+# Distribution
+*.egg-info/
+dist/
+build/
+*.zip
