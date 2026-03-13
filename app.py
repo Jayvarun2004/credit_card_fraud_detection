@@ -422,8 +422,8 @@ if page == "🏠  Overview":
     fraud  = int(df['Class'].sum())
     legit  = total - fraud
     f_pct  = round(fraud / total * 100, 3)
-    avg_am = round(df['Amount'].mean(), 2)
-    max_am = round(df['Amount'].max(), 2)
+    avg_am = round(df['Amount'].mean() * 83, 2)
+    max_am = round(df['Amount'].max() * 83, 2)
 
     # ── KPI Row ──────────────────────────────────────────────────────────────
     st.markdown("<div class='splunk-section-label'>📌 Key Performance Indicators</div>", unsafe_allow_html=True)
@@ -432,7 +432,7 @@ if page == "🏠  Overview":
     k2.markdown(kpi_html(f"{fraud:,}", "Fraud Cases",           SPL_RED,    "Flagged"), unsafe_allow_html=True)
     k3.markdown(kpi_html(f"{legit:,}", "Legitimate Cases",      SPL_GREEN,  "Verified"), unsafe_allow_html=True)
     k4.markdown(kpi_html(f"{f_pct}%", "Fraud Rate",            SPL_YELLOW, "Imbalance ratio"), unsafe_allow_html=True)
-    k5.markdown(kpi_html(f"${avg_am}", "Avg. Amount",           SPL_TEAL,   f"Max: ${max_am}"), unsafe_allow_html=True)
+    k5.markdown(kpi_html(f"₹{avg_am:,.2f}", "Avg. Amount",           SPL_TEAL,   f"Max: ₹{max_am:,.2f}"), unsafe_allow_html=True)
 
     # ── Charts Row 1 ─────────────────────────────────────────────────────────
     st.markdown("<div class='splunk-section-label'>📈 Transaction Analysis</div>", unsafe_allow_html=True)
@@ -465,18 +465,18 @@ if page == "🏠  Overview":
         df_sample = df.sample(min(10000, len(df)), random_state=42)
         fig_hist = go.Figure()
         fig_hist.add_trace(go.Histogram(
-            x=df_sample[df_sample['Class']==0]['Amount'],
+            x=df_sample[df_sample['Class']==0]['Amount'] * 83,
             name="Legitimate", nbinsx=80, opacity=0.8,
-            marker_color=SPL_GREEN, hovertemplate="Amount: $%{x:.2f}<br>Count: %{y}<extra>Legitimate</extra>"
+            marker_color=SPL_GREEN, hovertemplate="Amount: ₹%{x:.2f}<br>Count: %{y}<extra>Legitimate</extra>"
         ))
         fig_hist.add_trace(go.Histogram(
-            x=df_sample[df_sample['Class']==1]['Amount'],
+            x=df_sample[df_sample['Class']==1]['Amount'] * 83,
             name="Fraud", nbinsx=80, opacity=0.9,
-            marker_color=SPL_RED, hovertemplate="Amount: $%{x:.2f}<br>Count: %{y}<extra>Fraud</extra>"
+            marker_color=SPL_RED, hovertemplate="Amount: ₹%{x:.2f}<br>Count: %{y}<extra>Fraud</extra>"
         ))
         fig_hist.update_layout(barmode='overlay')
         splunk_chart(fig_hist, "Transaction Amount by Class")
-        fig_hist.update_layout(height=280, xaxis_title="Amount ($)", yaxis_title="Count")
+        fig_hist.update_layout(height=280, xaxis_title="Amount (₹)", yaxis_title="Count")
         st.plotly_chart(fig_hist, width='stretch')
         st.markdown("</div></div>", unsafe_allow_html=True)
 
@@ -487,17 +487,17 @@ if page == "🏠  Overview":
         labels = df_sample['Class'].map({0: "Legitimate", 1: "Fraud"})
         fig_box = go.Figure()
         fig_box.add_trace(go.Box(
-            y=df_sample[df_sample['Class']==0]['Amount'],
+            y=df_sample[df_sample['Class']==0]['Amount'] * 83,
             name="Legitimate", marker_color=SPL_GREEN,
             boxmean=True, line=dict(color=SPL_GREEN)
         ))
         fig_box.add_trace(go.Box(
-            y=df_sample[df_sample['Class']==1]['Amount'],
+            y=df_sample[df_sample['Class']==1]['Amount'] * 83,
             name="Fraud", marker_color=SPL_RED,
             boxmean=True, line=dict(color=SPL_RED)
         ))
         splunk_chart(fig_box, "Amount Distribution — Box Plot")
-        fig_box.update_layout(height=280, yaxis_title="Amount ($)")
+        fig_box.update_layout(height=280, yaxis_title="Amount (₹)")
         st.plotly_chart(fig_box, width='stretch')
         st.markdown("</div></div>", unsafe_allow_html=True)
 
@@ -803,7 +803,10 @@ elif page == "🔍  Manual Predict":
 
     with st.form("predict_form"):
         st.markdown("<div class='splunk-section-label'>💰 Transaction Amount</div>", unsafe_allow_html=True)
-        amount = st.number_input("Amount ($)", min_value=0.0, value=150.0, step=1.0)
+        # Note: The underlying model is trained on EUR/USD amounts from Kaggle dataset.
+        # We accept INR input from the user but scale it back down before prediction.
+        amount_inr = st.number_input("Amount (₹)", min_value=0.0, value=12500.0, step=100.0)
+        amount_usd = amount_inr / 83.0
 
         st.markdown("<div class='splunk-section-label'>🔢 PCA Feature Inputs (V1 – V28)</div>", unsafe_allow_html=True)
         v_values = {}
@@ -822,7 +825,7 @@ elif page == "🔍  Manual Predict":
 
     if submitted:
         from src.predict import predict_single
-        features = {**v_values, 'Amount': amount}
+        features = {**v_values, 'Amount': amount_usd}
         prob, label = predict_single(features, model=model)
 
         st.markdown("<div class='splunk-section-label'>🎯 Prediction Result</div>", unsafe_allow_html=True)
@@ -881,7 +884,7 @@ elif page == "🔍  Manual Predict":
                 <tr><th>Field</th><th>Value</th></tr>
                 <tr><td>Risk Level</td><td><span class="{sev_map[risk]}">{risk}</span></td></tr>
                 <tr><td>Fraud probability</td><td style="font-family:'Roboto Mono',monospace;">{prob*100:.4f}%</td></tr>
-                <tr><td>Transaction Amount</td><td style="font-family:'Roboto Mono',monospace;">${amount:,.2f}</td></tr>
+                <tr><td>Transaction Amount</td><td style="font-family:'Roboto Mono',monospace;">₹{amount_inr:,.2f}</td></tr>
                 <tr><td>Decision Threshold</td><td style="font-family:'Roboto Mono',monospace;">50.0%</td></tr>
             </table>
             """, unsafe_allow_html=True)
@@ -966,7 +969,12 @@ elif page == "📁  Batch Predict":
 
             with tbl_col:
                 st.markdown("<div class='splunk-panel'><div class='splunk-panel-header'>📋 TOP FRAUD TRANSACTIONS</div><div class='splunk-panel-body'>", unsafe_allow_html=True)
-                display_cols = ['fraud_probability', 'label', 'Amount'] if 'Amount' in results.columns else ['fraud_probability', 'label']
+                if 'Amount' in results.columns:
+                    results['Amount_INR'] = results['Amount'] * 83
+                    display_cols = ['fraud_probability', 'label', 'Amount_INR']
+                else:
+                    display_cols = ['fraud_probability', 'label']
+                    
                 st.dataframe(
                     results[display_cols].sort_values('fraud_probability', ascending=False),
                     width='stretch', height=260
