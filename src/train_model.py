@@ -1,16 +1,14 @@
 """
-train_model.py  –  Train & compare 6 ML models on the credit card fraud dataset.
+train_model.py  -  Train & compare ML models on the credit card fraud dataset.
                    Saves all model artifacts to models/.
 
 Models included:
   1. XGBoost
   2. Random Forest
-  3. Logistic Regression
-  4. Decision Tree
-  5. K-Nearest Neighbors
-  6. Naive Bayes (Gaussian)
-  7. Gradient Boosting
-  8. AdaBoost
+  3. Gradient Boosting
+  4. AdaBoost
+  5. Decision Tree
+  6. Logistic Regression
 """
 
 import os
@@ -25,11 +23,9 @@ from sklearn.ensemble import (
 )
 from sklearn.linear_model import LogisticRegression
 from sklearn.tree import DecisionTreeClassifier
-from sklearn.neighbors import KNeighborsClassifier
-from sklearn.naive_bayes import GaussianNB
 from sklearn.metrics import (
     accuracy_score, precision_score, recall_score,
-    f1_score, roc_auc_score, confusion_matrix
+    f1_score, roc_auc_score, confusion_matrix, roc_curve
 )
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
@@ -39,6 +35,8 @@ MODELS_DIR    = os.path.join(os.path.dirname(__file__), '..', 'models')
 METRICS_PATH  = os.path.join(MODELS_DIR, 'metrics.json')
 FEAT_IMP_PATH = os.path.join(MODELS_DIR, 'feature_importance.json')
 COMPARE_PATH  = os.path.join(MODELS_DIR, 'comparison.json')
+SCALER_PATH   = os.path.join(MODELS_DIR, 'scaler.pkl')
+ROC_PATH      = os.path.join(MODELS_DIR, 'roc_curves.json')
 
 DIVIDER = "=" * 65
 
@@ -46,6 +44,11 @@ DIVIDER = "=" * 65
 def evaluate(name, model, X_test, y_test):
     y_pred = model.predict(X_test)
     y_prob = model.predict_proba(X_test)[:, 1]
+
+    # ROC curve points (downsample to 300 points for JSON storage)
+    fpr, tpr, _ = roc_curve(y_test, y_prob)
+    step = max(1, len(fpr) // 300)
+
     return {
         'model':            name,
         'accuracy':         round(float(accuracy_score(y_test, y_pred)), 4),
@@ -56,6 +59,8 @@ def evaluate(name, model, X_test, y_test):
         'confusion_matrix': confusion_matrix(y_test, y_pred).tolist(),
         'test_size':        int(len(y_test)),
         'fraud_in_test':    int(y_test.sum()),
+        'roc_fpr':          fpr[::step].tolist(),
+        'roc_tpr':          tpr[::step].tolist(),
     }
 
 
@@ -73,9 +78,13 @@ def get_feature_importance(model, feature_names):
 def train():
     os.makedirs(MODELS_DIR, exist_ok=True)
 
-    print("📥 Loading and splitting data …")
-    X_train, X_test, y_train, y_test, _ = get_train_test_split()
+    print("Loading and splitting data ...")
+    X_train, X_test, y_train, y_test, scaler = get_train_test_split()
     feature_names = X_train.columns.tolist()
+
+    # Save the scaler fitted on training data — critical for correct inference
+    joblib.dump(scaler, SCALER_PATH)
+    print(f"   Scaler saved -> {SCALER_PATH}")
 
     neg = int((y_train == 0).sum())
     pos = int((y_train == 1).sum())
@@ -85,6 +94,8 @@ def train():
     print()
 
     # ── Model catalogue ───────────────────────────────────────────────────────
+    # KNN and Naive Bayes removed: KNN is O(n^2) on 284k rows,
+    # Naive Bayes assumes feature independence (invalid for PCA-correlated features)
     MODELS = {
         'XGBoost': XGBClassifier(
             n_estimators=300, max_depth=6, learning_rate=0.05,
@@ -102,7 +113,6 @@ def train():
         ),
         'AdaBoost': AdaBoostClassifier(
             n_estimators=200, learning_rate=0.5, random_state=42,
-            algorithm='SAMME',
         ),
         'Decision Tree': DecisionTreeClassifier(
             max_depth=8, class_weight='balanced', random_state=42,
@@ -111,10 +121,6 @@ def train():
             class_weight='balanced', max_iter=1000,
             solver='lbfgs', random_state=42,
         ),
-        'KNN': KNeighborsClassifier(
-            n_neighbors=5, n_jobs=-1,
-        ),
-        'Naive Bayes': GaussianNB(),
     }
 
     comparison   = []
@@ -125,7 +131,7 @@ def train():
 
     print(DIVIDER)
     for name, model in MODELS.items():
-        print(f"🚀 Training  [{name}] …")
+        print(f"Training  [{name}] ...")
         if name == 'XGBoost':
             model.fit(X_train, y_train,
                       eval_set=[(X_test, y_test)], verbose=50)
@@ -139,7 +145,7 @@ def train():
         safe = name.lower().replace(' ', '_')
         joblib.dump(model, os.path.join(MODELS_DIR, f'{safe}_model.pkl'))
 
-        print(f"   ✅ AUC={m['roc_auc']}  F1={m['f1_score']}  "
+        print(f"   AUC={m['roc_auc']}  F1={m['f1_score']}  "
               f"Precision={m['precision']}  Recall={m['recall']}")
         print()
 
@@ -165,16 +171,16 @@ def train():
         json.dump(comparison, f, indent=2)
 
     print(DIVIDER)
-    print(f"🏆 Best model  : {best_name}  (AUC = {best_auc})")
-    print(f"📁 All models saved  → {os.path.abspath(MODELS_DIR)}")
-    print(f"📊 Comparison  saved → {COMPARE_PATH}")
+    print(f"Best model  : {best_name}  (AUC = {best_auc})")
+    print(f"All models saved  -> {os.path.abspath(MODELS_DIR)}")
+    print(f"Comparison  saved -> {COMPARE_PATH}")
     print(DIVIDER)
 
     # ── Summary table ─────────────────────────────────────────────────────────
     print(f"\n{'Model':<22} {'AUC':>6} {'F1':>6} {'Recall':>8} {'Precision':>10}")
     print("-" * 55)
     for m in sorted(comparison, key=lambda x: x['roc_auc'], reverse=True):
-        star = " 🏆" if m['model'] == best_name else ""
+        star = " [BEST]" if m['model'] == best_name else ""
         print(f"{m['model']:<22} {m['roc_auc']:>6.4f} {m['f1_score']:>6.4f} "
               f"{m['recall']:>8.4f} {m['precision']:>10.4f}{star}")
 

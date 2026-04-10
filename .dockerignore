@@ -1,0 +1,16 @@
+venv/
+.git/
+.gitignore
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.db
+.sqlite3
+.devcontainer/
+.vscode/
+README.md
+implementation_plan.md
+task.md
+walkthrough.md
+trained_models.zip

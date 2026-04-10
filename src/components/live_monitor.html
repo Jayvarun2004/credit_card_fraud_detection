@@ -1,0 +1,454 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Live Monitor</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&family=Roboto+Mono:wght@400;500&display=swap');
+
+        /* Base & Theme Match Splunk-style in app.py */
+        body {
+            background-color: transparent; /* Streamlit iframe background */
+            color: #c3cbd4;
+            font-family: 'Roboto', 'Helvetica Neue', sans-serif;
+            margin: 0;
+            padding: 10px;
+        }
+
+        /* Summary Bar */
+        .summary-bar {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .summary-kpi {
+            background: #22242e;
+            border: 1px solid #2d3040;
+            border-radius: 4px;
+            padding: 16px 18px;
+            flex: 1;
+            position: relative;
+            overflow: hidden;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.4);
+        }
+
+        .summary-kpi::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; bottom: 0;
+            width: 4px;
+            background: var(--kpi-color, #0877a6);
+        }
+
+        .summary-val {
+            font-size: 1.8rem;
+            font-weight: 700;
+            color: var(--kpi-color, #0877a6);
+            line-height: 1.1;
+            font-family: 'Roboto Mono', monospace;
+            transition: all 0.3s ease;
+        }
+
+        .summary-label {
+            font-size: 0.72rem;
+            font-weight: 500;
+            color: #6b7280;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            margin-top: 5px;
+        }
+
+        /* Table */
+        .splunk-panel {
+            background: #22242e;
+            border: 1px solid #2d3040;
+            border-radius: 4px;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.4);
+            overflow: hidden;
+        }
+
+        .splunk-panel-header {
+            background: #1e2029;
+            border-bottom: 1px solid #2d3040;
+            padding: 12px 16px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.07em;
+            color: #7a8190;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .header-title-wrap {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        /* Toggle Button */
+        button.toggle-btn {
+            background: #2d3040;
+            color: #c3cbd4;
+            border: 1px solid #4b5260;
+            border-radius: 4px;
+            padding: 4px 10px;
+            font-size: 0.7rem;
+            font-family: 'Roboto', sans-serif;
+            font-weight: 600;
+            cursor: pointer;
+            text-transform: uppercase;
+            transition: all 0.2s ease;
+        }
+        button.toggle-btn:hover {
+            background: #3a3f52;
+        }
+        button.toggle-btn.paused {
+            background: #dc4e41;
+            border-color: #dc4e41;
+            color: #fff;
+        }
+
+        /* Pulsing Dot for Live Status */
+        .live-dot {
+            height: 8px;
+            width: 8px;
+            background-color: #53a051;
+            border-radius: 50%;
+            display: inline-block;
+            box-shadow: 0 0 0 0 rgba(83, 160, 81, 0.7);
+            animation: pulse-green 1.5s infinite;
+        }
+
+        @keyframes pulse-green {
+            0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(83, 160, 81, 0.7); }
+            70% { transform: scale(1); box-shadow: 0 0 0 6px rgba(83, 160, 81, 0); }
+            100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(83, 160, 81, 0); }
+        }
+
+        .table-container {
+            max-height: 600px;
+            overflow-y: auto;
+        }
+
+        /* Scrollbar customization */
+        .table-container::-webkit-scrollbar {
+            width: 8px;
+        }
+        .table-container::-webkit-scrollbar-track {
+            background: #1e2029;
+        }
+        .table-container::-webkit-scrollbar-thumb {
+            background-color: #4b5260;
+            border-radius: 4px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.85rem;
+            text-align: left;
+        }
+
+        th {
+            background: #1a1c21;
+            color: #7a8190;
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 0.07em;
+            padding: 10px 16px;
+            border-bottom: 1px solid #2d3040;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+
+        td {
+            padding: 12px 16px;
+            border-bottom: 1px solid #252835;
+            color: #c3cbd4;
+        }
+
+        /* Truncate long strings */
+        .truncate {
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 150px;
+        }
+
+        /* Font Mono */
+        .mono {
+            font-family: 'Roboto Mono', monospace;
+        }
+
+        /* Badges */
+        .badge {
+            padding: 3px 8px;
+            border-radius: 3px;
+            font-size: 0.72rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .badge-low { background: #53a051; color: #fff; }
+        .badge-medium { background: #f8be34; color: #1a1c21; }
+        .badge-high { background: #dc4e41; color: #fff; }
+
+        /* Row Animation */
+        .row-enter {
+            animation: slideDown 0.6s ease-out forwards;
+            background-color: rgba(136, 136, 136, 0.1); 
+        }
+
+        /* Highlight high risk rows */
+        .row-high-risk {
+            background-color: rgba(220, 78, 65, 0.08) !important;
+            border-left: 2px solid #dc4e41;
+        }
+        
+        .row-high-risk:hover {
+            background-color: rgba(220, 78, 65, 0.15) !important;
+        }
+
+        tr:hover {
+            background-color: #1e2029;
+        }
+
+        @keyframes slideDown {
+            0% {
+                opacity: 0;
+                transform: translateY(-10px);
+                background-color: rgba(136, 136, 136, 0.3);
+            }
+            100% {
+                opacity: 1;
+                transform: translateY(0);
+                /* background inherited/defined elsewhere */
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Summary Bar -->
+    <div class="summary-bar">
+        <div class="summary-kpi" style="--kpi-color: #0877a6;">
+            <div id="stat-total" class="summary-val">2,451</div>
+            <div class="summary-label">Total Transactions Today</div>
+        </div>
+        <div class="summary-kpi" style="--kpi-color: #dc4e41;">
+            <div id="stat-flagged" class="summary-val">12</div>
+            <div class="summary-label">Flagged (High Risk)</div>
+        </div>
+        <div class="summary-kpi" style="--kpi-color: #53a051;">
+            <div id="stat-amount" class="summary-val">₹ 14.5M</div>
+            <div class="summary-label">Processed Value</div>
+        </div>
+    </div>
+
+    <!-- Feed Panel -->
+    <div class="splunk-panel">
+        <div class="splunk-panel-header">
+            <div class="header-title-wrap">
+                <span class="live-dot" id="live-indicator"></span> 
+                <span id="feed-status-text">LIVE TRANSACTION FEED</span>
+            </div>
+            <button id="toggle-feed-btn" class="toggle-btn">Pause Feed</button>
+        </div>
+        <div class="table-container">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Time</th>
+                        <th>Account Holder</th>
+                        <th>Account Number</th>
+                        <th>Merchant</th>
+                        <th>Amount (&#8377;)</th>
+                        <th>Risk Level</th>
+                    </tr>
+                </thead>
+                <tbody id="transaction-feed">
+                    <!-- JS handles real time injection -->
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        // State variables
+        let totalCount = 2451;
+        let flaggedCount = 12;
+        let totalAmount = 14500000;
+        let isPaused = false;
+
+        const tbody = document.getElementById('transaction-feed');
+        const toggleFeedBtn = document.getElementById('toggle-feed-btn');
+        const liveIndicator = document.getElementById('live-indicator');
+        const feedStatusText = document.getElementById('feed-status-text');
+
+        toggleFeedBtn.addEventListener('click', () => {
+            isPaused = !isPaused;
+            if(isPaused) {
+                toggleFeedBtn.textContent = 'Resume Feed';
+                toggleFeedBtn.classList.add('paused');
+                liveIndicator.style.animation = 'none';
+                liveIndicator.style.backgroundColor = '#dc4e41';
+                feedStatusText.textContent = 'TRANSACTION FEED PAUSED';
+            } else {
+                toggleFeedBtn.textContent = 'Pause Feed';
+                toggleFeedBtn.classList.remove('paused');
+                liveIndicator.style.animation = 'pulse-green 1.5s infinite';
+                liveIndicator.style.backgroundColor = '#53a051';
+                feedStatusText.textContent = 'LIVE TRANSACTION FEED';
+            }
+        });
+        const statTotal = document.getElementById('stat-total');
+        const statFlagged = document.getElementById('stat-flagged');
+        const statAmount = document.getElementById('stat-amount');
+
+        // Formatter functions
+        const formatMoney = (val) => new Intl.NumberFormat('en-IN', { maximumFractionDigits: 0 }).format(val);
+        const formatShortMoney = (val) => {
+            if(val >= 10000000) return '₹ ' + (val/10000000).toFixed(2) + ' Cr';
+            if(val >= 100000) return '₹ ' + (val/100000).toFixed(2) + ' L';
+            if(val >= 1000) return '₹ ' + (val/1000).toFixed(1) + ' k';
+            return '₹ ' + val.toString();
+        };
+
+        // Data Generation Data 
+        const names = ["Rohan S.", "Aisha K.", "Priya M.", "Vikram D.", "Neha P.", "Rahul P.", "Ankit B.", "Sonal T.", "Karan V.", "Sneha R.", "Arun J."];
+        const merchants = ["Amazon India", "Flipkart", "Zomato", "Uber", "Swiggy", "Blinkit", "Reliance Fresh", "Cleartrip", "Paytm", "IRCTC", "Apple Store", "Crypto Exchange BP", "Unknown Intl Merchant", "Casino XYZ"];
+        
+        // Random generator helpers
+        const randItem = (arr) => arr[Math.floor(Math.random() * arr.length)];
+        const randBetween = (min, max) => Math.floor(Math.random() * (max - min + 1) + min);
+        
+        function formatTime(date) {
+            return date.toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
+        }
+
+        // Logic for generating a single new transaction
+        function createTransaction() {
+            const isAnomalous = Math.random() < 0.12; // 12% chance for an anomaly
+            
+            let name, merchant, amount, risk, riskBadgeHTML;
+            let accountStr = `**** **** **** ${randBetween(1000, 9999)}`;
+
+            if (isAnomalous) {
+                // Suspicious transaction
+                name = randItem(names);
+                merchant = randItem(["Crypto Exchange BP", "Unknown Intl Merchant", "Casino XYZ", "High-Risk Gateway"]);
+                amount = randBetween(50000, 450000);
+                
+                let isHigh = Math.random() < 0.4; // 40% of anomalous are 'high'
+                risk = isHigh ? "High" : "Medium";
+                riskBadgeHTML = `<span class="badge ${isHigh ? 'badge-high' : 'badge-medium'}">${risk}</span>`;
+            } else {
+                // Normal transaction
+                name = randItem(names);
+                merchant = randItem(merchants.slice(0, 10)); // Safe merchants
+                amount = randBetween(100, 15000);
+                risk = "Low";
+                riskBadgeHTML = `<span class="badge badge-low">${risk}</span>`;
+            }
+
+            return {
+                time: formatTime(new Date()),
+                name,
+                account: accountStr,
+                merchant,
+                amount,
+                risk,
+                riskBadgeHTML
+            };
+        }
+
+        // Function to inject row into table
+        function addTransactionRow() {
+            // Schedule the next one randomly to look organic (between 1s to 5s)
+            let nextDelay = randBetween(800, 4000);
+
+            if (isPaused) {
+                // Check again after a second if we're unpaused
+                setTimeout(addTransactionRow, 1000);
+                return;
+            }
+
+            const tx = createTransaction();
+
+            // if we just had a huge transaction, maybe wait a bit longer to process
+            if (tx.amount > 100000) nextDelay += 1000;
+
+            // Update stats
+            totalCount++;
+            totalAmount += tx.amount;
+            if (tx.risk === "High") flaggedCount++;
+
+            statTotal.innerText = totalCount.toLocaleString('en-IN');
+            statFlagged.innerText = flaggedCount.toLocaleString('en-IN');
+            statAmount.innerText = formatShortMoney(totalAmount);
+
+            // Create Row element
+            const tr = document.createElement('tr');
+            tr.className = 'row-enter';
+            if (tx.risk === 'High') {
+                tr.classList.add('row-high-risk');
+            }
+
+            tr.innerHTML = `
+                <td class="mono" style="color: #6b7280;">${tx.time}</td>
+                <td>${tx.name}</td>
+                <td class="mono truncate">${tx.account}</td>
+                <td class="truncate">${tx.merchant}</td>
+                <td class="mono">₹ ${formatMoney(tx.amount)}</td>
+                <td>${tx.riskBadgeHTML}</td>
+            `;
+
+            // Insert at top
+            tbody.insertBefore(tr, tbody.firstChild);
+
+            // Keep table under 100 rows to prevent infinite DOM memory expansion
+            if (tbody.children.length > 50) {
+                tbody.removeChild(tbody.lastChild);
+            }
+
+            // Remove animation class after it finishes so hover styles act normally
+            setTimeout(() => {
+                tr.classList.remove('row-enter');
+            }, 600);
+
+            setTimeout(addTransactionRow, nextDelay);
+        }
+
+        // Initialize with some dummy rows straight away so it's not empty
+        for (let i = 0; i < 8; i++) {
+            // fake timestamps pushing back 5 seconds per row
+            const d = new Date(Date.now() - (8 - i) * 6000);
+            
+            let name = randItem(names);
+            let merchant = randItem(merchants.slice(0, 10));
+            let amount = randBetween(200, 8000);
+            let tr = document.createElement('tr');
+            
+            tr.innerHTML = `
+                <td class="mono" style="color: #6b7280;">${formatTime(d)}</td>
+                <td>${name}</td>
+                <td class="mono truncate">**** **** **** ${randBetween(1000, 9999)}</td>
+                <td class="truncate">${merchant}</td>
+                <td class="mono">₹ ${formatMoney(amount)}</td>
+                <td><span class="badge badge-low">Low</span></td>
+            `;
+            tbody.insertBefore(tr, tbody.firstChild);
+        }
+
+        // Start live simulation
+        setTimeout(addTransactionRow, 1000);
+
+    </script>
+</body>
+</html>
