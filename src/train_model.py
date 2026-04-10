@@ -128,6 +128,7 @@ def train():
     best_name    = None
     best_metrics = None
     best_fi      = None
+    best_model_obj = None
 
     print(DIVIDER)
     for name, model in MODELS.items():
@@ -141,10 +142,6 @@ def train():
         m = evaluate(name, model, X_test, y_test)
         comparison.append(m)
 
-        # Save individual model
-        safe = name.lower().replace(' ', '_')
-        joblib.dump(model, os.path.join(MODELS_DIR, f'{safe}_model.pkl'))
-
         print(f"   AUC={m['roc_auc']}  F1={m['f1_score']}  "
               f"Precision={m['precision']}  Recall={m['recall']}")
         print()
@@ -154,13 +151,10 @@ def train():
             best_name    = name
             best_metrics = m
             best_fi      = get_feature_importance(model, feature_names)
+            best_model_obj = model
 
-    # ── Copy best model as primary ────────────────────────────────────────────
-    safe_best = best_name.lower().replace(' ', '_')
-    shutil.copy(
-        os.path.join(MODELS_DIR, f'{safe_best}_model.pkl'),
-        os.path.join(MODELS_DIR, 'xgb_model.pkl')
-    )
+    # ── Save best model as primary ────────────────────────────────────────────
+    joblib.dump(best_model_obj, os.path.join(MODELS_DIR, 'xgb_model.pkl'))
 
     # ── Persist artifacts ─────────────────────────────────────────────────────
     with open(METRICS_PATH, 'w') as f:
