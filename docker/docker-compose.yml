@@ -1,0 +1,13 @@
+version: '3.8'
+
+services:
+  fraud-detection-dashboard:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    ports:
+      - "8511:8501"
+    volumes:
+      - ../models:/app/models
+      - ../Data:/app/Data
+    restart: always

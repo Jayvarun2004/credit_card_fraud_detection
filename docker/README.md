@@ -41,7 +41,7 @@ An enterprise-grade, Splunk-style AI dashboard for detecting and analysing fraud
 
 ### 1. Clone the repository
 ```bash
-git clone https://github.com/Jayvarun2004/credit_card_fraud_detection.git
+git clone https://github.com/YOUR_USERNAME/credit_card_fraud_detection.git
 cd credit_card_fraud_detection
 ```
 
@@ -88,41 +88,33 @@ streamlit run app.py
 credit_card_fraud_detection/
 ├── app.py                      # Main Streamlit application (7 pages)
 ├── requirements.txt            # Python dependencies
-├── .env / .env.example         # API key configuration
-├── .gitignore / .dockerignore
-│
-├── src/                        # All ML & Python logic
+├── Dockerfile                  # Docker container config
+├── docker-compose.yml          # Docker compose config
+├── .env.example                # API key template
+├── src/
+│   ├── data_loader.py          # Dataset loading and preprocessing
 │   ├── train_model.py          # ML training pipeline (6 models)
 │   ├── predict.py              # Inference with correct scaler loading
-│   ├── data_loader.py          # Dataset loading and preprocessing
 │   ├── xai.py                  # SHAP Explainable AI waterfall charts
 │   ├── geo_mock.py             # Deterministic Lat/Lon geo-mapping
 │   ├── network_graph.py        # NetworkX fraud ring graph builder
 │   ├── report_gen.py           # fpdf2 Executive PDF report generator
 │   └── components/
 │       └── live_monitor.html   # Animated live transaction monitor
-│
-├── models/                     # Auto-generated after training (gitignored)
+├── models/                     # Generated after training (gitignored)
 │   ├── xgb_model.pkl           # Best model (primary)
 │   ├── scaler.pkl              # Training-fitted StandardScaler
 │   ├── metrics.json            # Best model metrics
 │   ├── comparison.json         # All 6 models comparison data
-│   └── feature_importance.json
-│
-├── Data/                       # Raw dataset — gitignored, download from Kaggle
-│   └── creditcard.csv
-│
-└── docker/                     # Deployment & documentation
-    ├── Dockerfile
-    ├── docker-compose.yml
-    └── README.md               # Extended deployment docs
+│   └── feature_importance.json # Top feature importances
+└── Data/                       # Dataset directory (gitignored)
+    └── creditcard.csv
 ```
 
 ---
 
 ## 🐳 Docker
 ```bash
-cd docker
 docker-compose up --build
 # Dashboard available at http://localhost:8511
 ```
