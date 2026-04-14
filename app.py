@@ -6,6 +6,7 @@ import os
 import sys
 import json
 import joblib
+import requests
 import numpy as np
 import pandas as pd
 import streamlit as st
@@ -342,7 +343,11 @@ def load_comparison():
 @st.cache_data
 def load_dataset():
     if not os.path.exists(DATA_PATH): return None
-    return pd.read_csv(DATA_PATH)
+    return pd.read_csv(DATA_PATH, engine='pyarrow')
+
+@st.cache_data
+def get_top_correlations(df):
+    return df.corr(numeric_only=True)['Class'].drop('Class').abs().sort_values(ascending=False).head(10)
 
 def model_trained() -> bool:
     return os.path.exists(MODEL_PATH)
@@ -514,7 +519,7 @@ if page == "🏠  Overview":
 
     with c4:
         st.markdown("<div class='splunk-panel'><div class='splunk-panel-header'>🔗 TOP FEATURES CORRELATED WITH FRAUD</div><div class='splunk-panel-body'>", unsafe_allow_html=True)
-        corr = df.corr(numeric_only=True)['Class'].drop('Class').abs().sort_values(ascending=False).head(10)
+        corr = get_top_correlations(df)
         fig_corr = go.Figure(go.Bar(
             y=corr.index, x=corr.values,
             orientation='h',
@@ -975,7 +980,7 @@ elif page == "📁  Batch Analysis":
 
     if uploaded_file:
         try:
-            df_upload = pd.read_csv(uploaded_file)
+            df_upload = pd.read_csv(uploaded_file, engine='pyarrow')
             st.markdown(f"<div class='splunk-section-label'>📄 Loaded {len(df_upload):,} transactions</div>", unsafe_allow_html=True)
             st.dataframe(df_upload.head(), width='stretch')
             
@@ -1048,6 +1053,8 @@ elif page == "📁  Batch Analysis":
                 st.warning("⚠️ No trained model found to run batch predictions. Run `python src/train_model.py` first.")
 
             del df_upload
+            import gc
+            gc.collect()
 
         except Exception as e:
             st.error(f"❌ Error processing file: {e}")

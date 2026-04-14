@@ -21,7 +21,7 @@ def load_raw_data(path: str = DATA_PATH) -> pd.DataFrame:
             "  https://www.kaggle.com/datasets/mlg-ulb/creditcardfraud\n"
             "and place it in the 'Data/' folder."
         )
-    return pd.read_csv(path)
+    return pd.read_csv(path, engine='pyarrow')
 
 
 def preprocess(df: pd.DataFrame):
