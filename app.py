@@ -1151,6 +1151,14 @@ elif page == "🤖  AI Assistant":
     </div>
     """, unsafe_allow_html=True)
 
+    # API Key Handling for users who pull the repo
+    env_groq_key = os.environ.get("GROQ_API_KEY", "")
+    if not env_groq_key:
+        st.info("💡 **Tip:** No `GROQ_API_KEY` found in your `.env` file. You can enter one below to use Cloud AI, or leave it blank to use local Ollama.")
+        user_groq_key = st.text_input("Groq API Key:", type="password", key="groq_user_input")
+    else:
+        user_groq_key = env_groq_key
+
     # Initialize chat history
     if "chat_history" not in st.session_state or not st.session_state["chat_history"]:
         st.session_state["chat_history"] = [
@@ -1205,7 +1213,7 @@ elif page == "🤖  AI Assistant":
                     messages.append({"role": m["role"], "content": m.get("content", "")})
                 
                 # Auto-routing logic
-                groq_key = os.environ.get("GROQ_API_KEY", "")
+                groq_key = user_groq_key
                 
                 try:
                     if groq_key and Groq is not None:
